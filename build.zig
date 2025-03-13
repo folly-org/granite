@@ -4,15 +4,10 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib_mod = b.createModule(.{
+    const lib = b.addModule("granite", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
-    });
-
-    const lib = b.addLibrary(.{
-        .name = "granite",
-        .root_module = lib_mod,
     });
 
     // Raylib (via raylib-zig)
@@ -27,8 +22,8 @@ pub fn build(b: *std.Build) void {
     const raylib_artifact = raylib_dep.artifact("raylib");
 
     lib.linkLibrary(raylib_artifact);
-    lib_mod.addImport("raylib", raylib);
-    //lib_mod.addImport("raygui", raygui);
+    lib.addImport("raylib", raylib);
+    //lib.addImport("raygui", raygui);
 
     // Luau (via lua_wrapper/ziglua)
     const lua = b.dependency("lua_wrapper", .{
@@ -37,7 +32,7 @@ pub fn build(b: *std.Build) void {
         .lang = .luau,
     });
 
-    lib_mod.addImport("lua", lua.module("lua_wrapper"));
+    lib.addImport("lua", lua.module("lua_wrapper"));
 
     // Freetype and Harfbuzz (via mach_freetype)
     const freetype_dep = b.dependency("mach_freetype", .{
@@ -45,8 +40,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    lib_mod.addImport("freetype", freetype_dep.module("mach-freetype"));
-    lib_mod.addImport("harfbuzz", freetype_dep.module("mach-harfbuzz"));
-
-    b.installArtifact(lib);
+    lib.addImport("freetype", freetype_dep.module("mach-freetype"));
+    lib.addImport("harfbuzz", freetype_dep.module("mach-harfbuzz"));
 }
