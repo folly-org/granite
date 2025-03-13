@@ -46,7 +46,7 @@ pub const App = struct {
             .window_highdpi = true,
         });
 
-        rl.initWindow(self.screenWidth, self.screenHeight, self.window_name);
+        rl.initWindow(self.screen_width, self.screen_height, self.window_name);
         defer rl.closeWindow();
 
         rl.setWindowState(.{
