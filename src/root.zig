@@ -13,7 +13,7 @@ const Lua = lua.Lua;
 pub const App = struct {
     screen_width: i32,
     screen_height: i32,
-    window_name: []const u8,
+    window_name: [*:0]const u8,
     base_folder: []const u8,
 
     /// Initializes the app with the given parameters.
@@ -24,7 +24,7 @@ pub const App = struct {
     /// - `screen_height`: The height of the screen.
     /// - `window_name`: The name of the window.
     /// - `base_folder`: The base folder of the app. This folder needs to contain the `core` folder and the `core/init.luau` file.
-    pub fn init(screen_width: i32, screen_height: i32, window_name: []const u8, base_folder: []const u8) App {
+    pub fn init(screen_width: i32, screen_height: i32, window_name: [*:0]const u8, base_folder: []const u8) App {
         lua_global.setBaseDir(base_folder);
         return App{
             .screen_width = screen_width,
