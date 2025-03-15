@@ -245,7 +245,7 @@ pub const Text = struct {
         self.built_text.glyphs.deinit(self.allocator);
     }
 
-    pub fn setText(self: *Text, font_id: u32, text: []const u8, pos: rl.Vector2, size: ?u32) !void {
+    pub fn setText(self: *Text, font_id: u32, text: []const u8, size: ?u32) !void {
         self.font_id = font_id;
 
         var font = fonts.get(font_id) orelse return error.FontNotFound;
@@ -268,10 +268,10 @@ pub const Text = struct {
         try font.shape(&text_run);
 
         var texture_update = false;
-        var cursor = pos;
+        var cursor = rl.Vector2.init(0, 0);
         while (text_run.next()) |glyph| {
             if (glyph.glyph_index == newline_char_index) {
-                cursor.x = pos.x;
+                cursor.x = 0;
                 cursor.y += text_run.font_size;
                 continue;
             }
@@ -341,7 +341,7 @@ pub const Text = struct {
         }
     }
 
-    pub fn draw(self: *const Text, color: rl.Color) void {
+    pub fn draw(self: *const Text, pos: rl.Vector2, color: rl.Color) void {
         const atlas_opt = atlas_map.get(self.font_id);
         if (atlas_opt) |atlas| {
             if (atlas.texture) |texture| {
@@ -359,8 +359,8 @@ pub const Text = struct {
                             glyph.size.x, 
                             glyph.size.y
                         ),
-                        rl.Vector2.init(0.0,0.0), 
-                        0.0, 
+                        pos,
+                        0.0,
                         color
                     );
                 }

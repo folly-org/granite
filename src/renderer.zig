@@ -15,8 +15,8 @@ pub const RenderCommand = union(enum) {
 
     pub const Text = struct {
         text: fRenderer.Text,
+        pos: rl.Vector2,
         color: rl.Color,
-        hash: u64,
         should_deinit: bool = true,
     };
 
@@ -66,11 +66,7 @@ const TextKey = struct {
     fontId: u32,
     text: u64,
     size: u32,
-    x: u32,
-    y: u32,
-    color: rl.Color,
 };
-const textKeyHashFn = std.hash_map.getAutoHashFn(TextKey, struct {});
 
 var alloc: ?std.mem.Allocator = null;
 
@@ -80,6 +76,8 @@ var redrawCmdBuf: ?std.ArrayList(RenderCommand) = null;
 var activeBuf: ?*std.ArrayList(RenderCommand) = null;
 var passiveBuf: ?*std.ArrayList(RenderCommand) = null;
 
+var textCache: ?std.AutoHashMap(TextKey, fRenderer.Text) = null;
+
 pub fn init(allocator: std.mem.Allocator) !void {
     alloc = allocator;
     
@@ -88,63 +86,45 @@ pub fn init(allocator: std.mem.Allocator) !void {
 
     passiveBuf = &(drawCmdBuf.?);
     activeBuf = &(redrawCmdBuf.?);
+
+    textCache = std.AutoHashMap(TextKey, fRenderer.Text).init(allocator);
 }
 
 pub fn deinit() void {
     if (drawCmdBuf == null) @panic("Command buffer not initialized!");
-    
-    for (drawCmdBuf.?.items) |*cmd| {
-        if (cmd.* == .text) {
-            cmd.*.text.text.deinit();
-        }
-    }
-
-    for (redrawCmdBuf.?.items) |*cmd| {
-        if (cmd.* == .text) {
-            cmd.*.text.text.deinit();
-        }
-    }
     
     drawCmdBuf.?.deinit();
     redrawCmdBuf.?.deinit();
 
     fRenderer.deinitFonts();
     fRenderer.deinitAtlasMap();
+
+    var it = textCache.?.valueIterator();
+    while (it.next()) |entry| {
+        entry.deinit();
+    }
+    textCache.?.deinit();
 }
 
 pub fn drawText(content: [*:0]const u8, x: f32, y: f32, fontId: u32, size: u32, color: rl.Color) !void {
     if (alloc == null) @panic("Allocator not initialized!");
 
-    const textObjHash = textKeyHashFn(.{}, .{
+    const text = try textCache.?.getOrPut(.{
         .fontId = fontId,
         .text = std.hash_map.hashString(std.mem.span(content)),
         .size = size,
-        .x = @bitCast(x),
-        .y = @bitCast(y),
-        .color = color
     });
     
-    for (passiveBuf.?.*.items) |*command| {
-        if (command.* == .text) {
-            const text = command.*.text;
-            if (text.hash == textObjHash) {
-                command.*.text.should_deinit = false;
-                try activeBuf.?.*.append(command.*);
-                return;
-            }
-        }
+    if (!text.found_existing) {
+        text.value_ptr.* = try fRenderer.Text.init(alloc.?);
+        try text.value_ptr.*.setText(fontId, std.mem.span(content), size);
     }
-
-    // TODO: maybe add checking of the activeBuf? we'll see
-    
-    var text = try fRenderer.Text.init(alloc.?);
-    try text.setText(fontId, std.mem.span(content), .{ .x = x, .y = y }, size);
 
     try activeBuf.?.*.append(RenderCommand {
         .text = .{
-            .text = text,
+            .text = text.value_ptr.*,
+            .pos = rl.Vector2.init(-x, -y),
             .color = color,
-            .hash = textObjHash,
             .should_deinit = true,
         }
     });
@@ -230,18 +210,6 @@ pub fn endRedraw() void {
 
     std.mem.swap(*std.ArrayList(RenderCommand), &(passiveBuf.?), &(activeBuf.?));
 
-    for (activeBuf.?.*.items) |*command| {
-        if (command.* == .text and command.*.text.should_deinit) {
-            command.*.text.text.deinit();
-        }
-    }
-
-    for (passiveBuf.?.*.items) |*command| {
-        if (command.* == .text and !command.*.text.should_deinit) {
-            command.*.text.should_deinit = true;
-        }
-    }
-
     activeBuf.?.*.clearAndFree();
 }
 
@@ -257,7 +225,7 @@ pub fn drawFrame() void {
     for (passiveBuf.?.*.items) |command| {
         switch (command) {
             .text => |cmd| {
-                cmd.text.draw(cmd.color);
+                cmd.text.draw(cmd.pos, cmd.color);
             },
             .rect => |cmd| {
                 rl.drawRectangle(
