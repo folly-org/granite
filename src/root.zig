@@ -52,10 +52,6 @@ pub const App = struct {
 
     /// Runs the app.
     pub fn run(self: *App) anyerror!void {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-        const alloc = gpa.allocator();
-        defer _ = gpa.deinit();
-
         rl.setConfigFlags(.{
             .vsync_hint = true,
             .msaa_4x_hint = true,
@@ -69,13 +65,13 @@ pub const App = struct {
             .window_resizable = true,
         });
 
-        http.init(alloc);
+        http.init(self.allocator);
         defer http.deinit();
 
-        try renderer.init(alloc);
+        try renderer.init(self.allocator);
         defer renderer.deinit();
 
-        var L = try Lua.init(alloc);
+        var L = try Lua.init(self.allocator);
         defer L.deinit();
 
         L.openLibs();
@@ -86,13 +82,13 @@ pub const App = struct {
 
         var iter = self.libraries.iterator();
         while (iter.next()) |library| {
-            const library_name = try alloc.dupeZ(u8, library.key_ptr.*);
-            defer alloc.free(library_name);
+            const library_name = try self.allocator.dupeZ(u8, library.key_ptr.*);
+            defer self.allocator.free(library_name);
             L.registerFns(library_name, library.value_ptr.*.items);
         }
 
-        const core_init_path = try std.fmt.allocPrintZ(alloc, "{s}/core/init.luau", .{self.base_folder});
-        defer alloc.free(core_init_path);
+        const core_init_path = try std.fmt.allocPrintZ(self.allocator, "{s}/core/init.luau", .{self.base_folder});
+        defer self.allocator.free(core_init_path);
 
         lua_api.doFile(L, core_init_path, null) catch |err| {
             std.debug.print("lua err: {}\n", .{err});

@@ -116,8 +116,9 @@ pub fn drawText(content: [*:0]const u8, x: f32, y: f32, fontId: u32, size: u32, 
     });
     
     if (!text.found_existing) {
-        text.value_ptr.* = try fRenderer.Text.init(alloc.?);
-        try text.value_ptr.*.setText(fontId, std.mem.span(content), size);
+        var text_obj = try fRenderer.Text.init(alloc.?);
+        try text_obj.setText(fontId, std.mem.span(content), size);
+        text.value_ptr.* = text_obj;
     }
 
     try activeBuf.?.*.append(RenderCommand {
