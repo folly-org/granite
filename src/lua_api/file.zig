@@ -1,5 +1,5 @@
 const std = @import("std");
-const lua = @import("lua");
+const lua = @import("zlua");
 
 const api = @import("api.zig");
 

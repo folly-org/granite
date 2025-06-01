@@ -5,7 +5,22 @@ Test.libraryTestFn()
 
 local textTbl = {}
 
-App.setMainLoop(function()
+local count = 0
+
+local connection = Signal.RenderStart:Connect(function(delta_time)
+    count += 1
+    print(count, delta_time)
+end)
+
+Signal.RenderEnd:Connect(function()
+    if count > 20 then
+        connection:Disconnect()
+        print("Disconnected")
+        count = 0
+    end
+end)
+
+Signal.RenderStart:Connect(function(delta_time)
     table.insert(textTbl, {
         math.random(1, 1000),
         math.random(1, 1000),
@@ -23,5 +38,9 @@ App.setMainLoop(function()
         })
     end
     print("FPS: " .. App.getFPS(), "Texts: " .. #textTbl)
-    return true
+    Renderer.endRedraw()
+end)
+
+Signal.KeyPressed:Connect(function(key)
+    print(key)
 end)

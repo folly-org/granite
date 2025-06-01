@@ -1,5 +1,5 @@
 const std = @import("std");
-const lua = @import("lua");
+const lua = @import("zlua");
 
 // LIBRARIES
 const globals = @import("global.zig");
@@ -8,6 +8,7 @@ const input_api = @import("input.zig");
 const app_api = @import("app.zig");
 const file_api = @import("file.zig");
 const json_api = @import("json.zig");
+const signal_api = @import("signals.zig");
 const Lua = lua.Lua;
 
 const libReg = struct { name: [:0]const u8, func: ?*const fn (L: *Lua, libraryName: [:0]const u8) void };
@@ -19,6 +20,7 @@ const libraries = [_]libReg{
     .{ .name = "App", .func = app_api.registerLuaFunctions },
     .{ .name = "File", .func = file_api.registerLuaFunctions },
     .{ .name = "JSON", .func = json_api.registerLuaFunctions },
+    .{ .name = "Signal", .func = signal_api.registerLuaFunctions },
 };
 
 pub fn loadLibraries(L: *Lua) void {
@@ -88,4 +90,21 @@ pub fn doFile(L: *Lua, filename: [:0]const u8, pcall_args: ?Lua.ProtectedCallArg
 pub fn make_lua_err(func: [:0]const u8, err: anytype) i32 {
     std.debug.print("lua_err in func {s}: {any}\n", .{ func, err });
     return 0;
+}
+
+pub fn dumpStack(L: *Lua) void {
+    const top = L.getTop();
+    var i: i32 = 1;
+    while (i <= top) : (i += 1) {
+        const typ = L.typeName(L.typeOf(i));
+        std.debug.print("{d}\t{s}\t", .{ i, typ });
+
+        switch (L.typeOf(i)) {
+            .number => std.debug.print("{d}\n", .{L.toNumber(i) catch unreachable}),
+            .string => std.debug.print("{s}\n", .{L.toString(i) catch unreachable}),
+            .boolean => std.debug.print("{}\n", .{L.toBoolean(i)}),
+            .nil => std.debug.print("nil\n", .{}),
+            else => std.debug.print("{*}\n", .{L.toPointer(i) catch unreachable}),
+        }
+    }
 }

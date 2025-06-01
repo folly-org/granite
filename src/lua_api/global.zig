@@ -1,5 +1,5 @@
 const std = @import("std");
-const lua = @import("lua");
+const lua = @import("zlua");
 const rl = @import("raylib");
 
 const api = @import("api.zig");
@@ -137,7 +137,7 @@ fn lFetch(L: *Lua) i32 {
         _ = L.pushString(header.value);
         L.setTable(-3);
     }
-    
+
     L.setTable(-3);
 
     return 1;

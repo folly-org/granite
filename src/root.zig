@@ -1,12 +1,12 @@
 const std = @import("std");
 const rl = @import("raylib");
-const lua = @import("lua");
+const lua = @import("zlua");
 
 const renderer = @import("./renderer.zig");
 const lua_api = @import("./lua_api/api.zig");
-const lua_app_api = @import("./lua_api/app.zig");
 const lua_global = @import("./lua_api/global.zig");
 const http = @import("./http.zig");
+const signal = @import("./signal.zig");
 
 const Lua = lua.Lua;
 
@@ -14,7 +14,7 @@ pub const App = struct {
     allocator: std.mem.Allocator,
     screen_width: i32,
     screen_height: i32,
-    window_name: [*:0]const u8,
+    window_name: [:0]const u8,
     base_folder: []const u8,
     globals: std.ArrayList(lua.FnReg),
     libraries: std.StringHashMap(std.ArrayList(lua.FnReg)),
@@ -27,7 +27,7 @@ pub const App = struct {
     /// - `screen_height`: The height of the screen.
     /// - `window_name`: The name of the window.
     /// - `base_folder`: The base folder of the app. This folder needs to contain the `core` folder and the `core/init.luau` file.
-    pub fn init(allocator: std.mem.Allocator, screen_width: i32, screen_height: i32, window_name: [*:0]const u8, base_folder: []const u8) App {
+    pub fn init(allocator: std.mem.Allocator, screen_width: i32, screen_height: i32, window_name: [:0]const u8, base_folder: []const u8) App {
         lua_global.setBaseDir(base_folder);
         return App{
             .allocator = allocator,
@@ -74,6 +74,9 @@ pub const App = struct {
         var L = try Lua.init(self.allocator);
         defer L.deinit();
 
+        try signal.init(self.allocator);
+        defer signal.deinit();
+
         L.openLibs();
         lua_api.loadLibraries(L);
         for (self.globals.items) |global| {
@@ -97,13 +100,24 @@ pub const App = struct {
         rl.pollInputEvents();
 
         while (!rl.windowShouldClose()) {
-            if (lua_app_api.callMainLoop(L)) renderer.endRedraw();
+            // Update
+            var key: rl.KeyboardKey = rl.getKeyPressed();
+            while (key != .null) {
+                try signal.emitSignal(L, "KeyPressed", .{ key });
+                key = rl.getKeyPressed();
+            }
+
+            // Render
+            
+            try signal.emitSignal(L,"RenderStart", .{ rl.getFrameTime() });
 
             rl.beginDrawing();
             defer rl.endDrawing();
 
             rl.clearBackground(rl.Color.black);
             renderer.drawFrame();
+
+            try signal.emitSignal(L, "RenderEnd", .{});
         }
     }
 

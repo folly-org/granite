@@ -1,4 +1,4 @@
-const lua = @import("lua");
+const lua = @import("zlua");
 
 const Lua = lua.Lua;
 

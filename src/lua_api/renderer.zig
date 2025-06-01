@@ -1,4 +1,4 @@
-const lua = @import("lua");
+const lua = @import("zlua");
 const rl = @import("raylib");
 
 const api = @import("./api.zig");
@@ -77,6 +77,13 @@ fn lMeasureText(L: *Lua) i32 {
     return 2;
 }
 
+fn lEndRedraw(L: *Lua) i32 {
+    _ = L;
+    renderer.endRedraw();
+
+    return 0;
+}
+
 const funcs = [_]lua.FnReg{
     .{ .name = "drawRect", .func = lua.wrap(lDrawRect) },
     .{ .name = "drawRectOutline", .func = lua.wrap(lDrawRectOutline) },
@@ -88,6 +95,8 @@ const funcs = [_]lua.FnReg{
 
     .{ .name = "drawText", .func = lua.wrap(lDrawText) },
     .{ .name = "measureText", .func = lua.wrap(lMeasureText) },
+
+    .{ .name = "endRedraw", .func = lua.wrap(lEndRedraw) },
 };
 
 const renderer_font = @import("./renderer_font.zig");

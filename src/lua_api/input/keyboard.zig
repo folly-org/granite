@@ -1,4 +1,4 @@
-const lua = @import("lua");
+const lua = @import("zlua");
 const rl = @import("raylib");
 
 const Lua = lua.Lua;

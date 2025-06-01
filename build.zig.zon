@@ -3,20 +3,20 @@
 
     .version = "0.0.1",
 
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.0-dev.552+bc2f7c754",
 
     .dependencies = .{
         .raylib_zig = .{
-            .url = "git+https://github.com/freegamerskids/raylib-zig?ref=devel#c89dba2a8f0a5551fc11a7b45c9909950feb0806",
-            .hash = "raylib_zig-5.5.0-oQa7RQQWBQBJ4_lMMOOdpbV7g4QPHZsHMjCKMXe7VzDa",
+            .url = "git+https://github.com/Not-Nik/raylib-zig?ref=devel#3bf08a304cfe2baf839705063ff999b8d8bc8c54",
+            .hash = "raylib_zig-5.6.0-dev-KE8REKAqBQAQugfCOjYYVRFOi7iaEJK1EMDcRUq8AOm2",
         },
         .mach_freetype = .{
             .url = "git+https://github.com/hexops/mach-freetype?ref=main#359e8721d4b988d6297534164e4976a71c46ec43",
             .hash = "mach_freetype-0.0.0-AAAAALwUAgCt_Mzj28Tk-oZQ_a7BEKZ29rihRi7W70Io",
         },
-        .lua_wrapper = .{
-            .url = "git+https://github.com/natecraddock/ziglua?ref=main#7bfb3c2b87220cdc89ef01cc99a200dad7a28e50",
-            .hash = "lua_wrapper-0.1.0-OyMC27fOBAAU3E2ueB-EWGSgsuCFQZL83pT0nQJ1ufOI",
+        .zlua = .{
+            .url = "git+https://github.com/natecraddock/ziglua?ref=main#f7b3c90d026afd33b0a70debfd54ea50f1acfc1b",
+            .hash = "zlua-0.1.0-hGRpC-IZBQDD9MfKTbeRE3z_Qg-kI2SqnT1JaRl9W9Sq",
         },
     },
     .paths = .{

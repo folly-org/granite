@@ -322,7 +322,7 @@ pub const Text = struct {
         if (atlas.value_ptr.*.texture) |texture| {
             if (texture_update) {
                 texture.unload();
-                atlas.value_ptr.*.texture = rl.loadTextureFromImage(.{
+                atlas.value_ptr.*.texture = try rl.loadTextureFromImage(.{
                     .data = @constCast(atlas.value_ptr.*.atlas.data.ptr),
                     .width = @intCast(atlas.value_ptr.*.atlas.size),
                     .height = @intCast(atlas.value_ptr.*.atlas.size),
@@ -331,7 +331,7 @@ pub const Text = struct {
                 });
             }
         } else {
-            atlas.value_ptr.*.texture = rl.loadTextureFromImage(.{
+            atlas.value_ptr.*.texture = try rl.loadTextureFromImage(.{
                 .data = @constCast(atlas.value_ptr.*.atlas.data.ptr),
                 .width = @intCast(atlas.value_ptr.*.atlas.size),
                 .height = @intCast(atlas.value_ptr.*.atlas.size),
