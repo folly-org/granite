@@ -42,6 +42,15 @@ pub fn build(b: *std.Build) void {
 
     lib.addImport("freetype", freetype_dep.module("mach-freetype"));
     lib.addImport("harfbuzz", freetype_dep.module("mach-harfbuzz"));
+    
+    // FFmpeg (via allyourcodebases/ffmpeg)
+    const ffmpeg_dep = b.dependency("ffmpeg", .{
+        .target = target,
+        .optimize = optimize,
+        .tls = .mbedtls,
+    });
+
+    lib.addImport("ffmpeg", ffmpeg_dep.module("av"));
 
     // Demo Executable
 

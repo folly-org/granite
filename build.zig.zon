@@ -3,7 +3,7 @@
 
     .version = "0.0.1",
 
-    .minimum_zig_version = "0.15.0-dev.552+bc2f7c754",
+    .minimum_zig_version = "0.15.0-dev.885+e83776595",
 
     .dependencies = .{
         .raylib_zig = .{
@@ -17,6 +17,10 @@
         .zlua = .{
             .url = "git+https://github.com/natecraddock/ziglua?ref=main#f7b3c90d026afd33b0a70debfd54ea50f1acfc1b",
             .hash = "zlua-0.1.0-hGRpC-IZBQDD9MfKTbeRE3z_Qg-kI2SqnT1JaRl9W9Sq",
+        },
+        .ffmpeg = .{
+            .url = "git+https://github.com/allyourcodebase/ffmpeg.git#7aef8a66ade3af7c29aa36f19932c0625ff0b751",
+            .hash = "ffmpeg-7.0.1-7-zT7QA9p7CAQaSm6Kai-D5TAmr8nq48YI-gyTUhrDFbDK",
         },
     },
     .paths = .{
