@@ -12,8 +12,6 @@ pub fn build(b: *std.Build) void {
 
     // Raylib (via raylib-zig)
     const raylib_dep = b.dependency("raylib_zig", .{
-        .target = target,
-        .optimize = optimize,
         .opengl_version = .auto,
     });
 
@@ -27,41 +25,37 @@ pub fn build(b: *std.Build) void {
 
     // Luau (via zlua)
     const lua = b.dependency("zlua", .{
-        .target = target,
-        .optimize = optimize,
         .lang = .luau,
     });
 
     lib.addImport("zlua", lua.module("zlua"));
 
     // Freetype and Harfbuzz (via mach_freetype)
-    const freetype_dep = b.dependency("mach_freetype", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    const freetype_dep = b.dependency("mach_freetype", .{});
 
     lib.addImport("freetype", freetype_dep.module("mach-freetype"));
     lib.addImport("harfbuzz", freetype_dep.module("mach-harfbuzz"));
 
     // Demo Executable
 
-    const exe = b.addExecutable(.{
-        .name = "granite_demo",
+    const demo_module = b.addModule("granite_demo", .{
         .root_source_file = b.path("demo/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    exe.root_module.addImport("granite", lib);
+    demo_module.addImport("granite", lib);
+
+    const exe = b.addExecutable(.{
+        .name = "granite_demo",
+        .root_module = demo_module,
+    });
     b.installArtifact(exe);
 
     // Zig Check Executable
     const exe_check = b.addExecutable(.{
         .name = "granite_check",
-        .root_source_file = b.path("demo/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = demo_module,
     });
-    exe_check.root_module.addImport("granite", lib);
 
     // Run Demo Command
     

@@ -3,20 +3,20 @@
 
     .version = "0.0.1",
 
-    .minimum_zig_version = "0.15.0-dev.552+bc2f7c754",
+    .minimum_zig_version = "0.15.2",
 
     .dependencies = .{
         .raylib_zig = .{
-            .url = "git+https://github.com/Not-Nik/raylib-zig?ref=devel#3bf08a304cfe2baf839705063ff999b8d8bc8c54",
-            .hash = "raylib_zig-5.6.0-dev-KE8REKAqBQAQugfCOjYYVRFOi7iaEJK1EMDcRUq8AOm2",
+            .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#a4d18b2d1cf8fdddec68b5b084535fca0475f466",
+            .hash = "raylib_zig-5.6.0-dev-KE8REL5MBQAf3p497t52Xw9P7ojndIkVOWPXnLiLLw2P",
         },
         .mach_freetype = .{
-            .url = "git+https://github.com/hexops/mach-freetype?ref=main#359e8721d4b988d6297534164e4976a71c46ec43",
-            .hash = "mach_freetype-0.0.0-AAAAALwUAgCt_Mzj28Tk-oZQ_a7BEKZ29rihRi7W70Io",
+            .url = "git+https://github.com/zxubian/mach-freetype?ref=0.15.1#715f8ce8ea71e8dfec39b04928016917ef6bbc98",
+            .hash = "mach_freetype-0.0.0-VJFNC4QVAgBu2BMbu893qxVEMrxM_2-rA6x6hCPsvOpL",
         },
         .zlua = .{
-            .url = "git+https://github.com/natecraddock/ziglua?ref=main#f7b3c90d026afd33b0a70debfd54ea50f1acfc1b",
-            .hash = "zlua-0.1.0-hGRpC-IZBQDD9MfKTbeRE3z_Qg-kI2SqnT1JaRl9W9Sq",
+            .url = "git+https://github.com/natecraddock/ziglua?ref=push-vwpzvrynkusq#333973254b5df9b503cbfc4b03d1db6a0f44ace6",
+            .hash = "zlua-0.1.0-hGRpC5k9BQC4wVZgLVI12TnzgCaQ3O_ov_uNBiBooT1o",
         },
     },
     .paths = .{

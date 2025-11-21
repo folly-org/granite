@@ -32,7 +32,7 @@ fn lRequire(L: *Lua) i32 {
 
         const dir = std.fs.path.dirname(full_src_path).?;
 
-        const full_path = std.fmt.allocPrintZ(alloc, "{s}/{s}/{s}.luau", .{ base_dir.?, dir, path }) catch |err| return api.make_lua_err("allocPrintZ full_path cwd", err);
+        const full_path = std.fmt.allocPrintSentinel(alloc, "{s}/{s}/{s}.luau", .{ base_dir.?, dir, path }, 0) catch |err| return api.make_lua_err("allocPrintZ full_path cwd", err);
         defer alloc.free(full_path);
 
         api.doFile(L, full_path, .{ .args = 0, .results = 1, .msg_handler = 0 }) catch |err| return api.make_lua_err("dofile cwd", err);
@@ -40,7 +40,7 @@ fn lRequire(L: *Lua) i32 {
         return 1;
     }
 
-    const full_path = std.fmt.allocPrintZ(alloc, "{s}/{s}.luau", .{ base_dir.?, path[1..] }) catch |err| return api.make_lua_err("allocPrintZ full_path @", err);
+    const full_path = std.fmt.allocPrintSentinel(alloc, "{s}/{s}.luau", .{ base_dir.?, path[1..] }, 0) catch |err| return api.make_lua_err("allocPrintZ full_path @", err);
     defer alloc.free(full_path);
 
     api.doFile(L, full_path, .{ .args = 0, .results = 1, .msg_handler = 0 }) catch |err| return api.make_lua_err("dofile @", err);
@@ -49,7 +49,7 @@ fn lRequire(L: *Lua) i32 {
 }
 
 fn lWait(L: *Lua) i32 {
-    std.time.sleep(@as(u64, @intFromFloat((L.optNumber(1) orelse rl.getFrameTime()) * std.time.ns_per_s)));
+    std.Thread.sleep(@as(u64, @intFromFloat((L.optNumber(1) orelse rl.getFrameTime()) * std.time.ns_per_s)));
 
     return 0;
 }
@@ -65,24 +65,24 @@ fn lFetch(L: *Lua) i32 {
     }
 
     _ = L.getField(2, "method");
-    var method: std.http.Method = @enumFromInt(std.http.Method.parse(L.checkString(-1)));
+    var method: std.http.Method = std.meta.stringToEnum(std.http.Method, L.checkString(-1)) orelse return api.make_lua_err("invalid method", error.InvalidMethod);
     L.pop(1);
 
     _ = L.getField(2, "headers");
 
     L.pushNil();
     var is_ua_set = false;
-    var headers = std.ArrayList(std.http.Header).init(alloc);
+    var headers = std.ArrayList(std.http.Header).empty;
     while (L.next(-2)) {
         const key = L.checkString(-2);
         const value = L.checkString(-1);
         if (std.ascii.eqlIgnoreCase(key, "user-agent")) {
             is_ua_set = true;
         }
-        headers.append(.{ .name = key, .value = value }) catch return api.make_lua_err("fetch headers", error.OutOfMemory);
+        headers.append(alloc, .{ .name = key, .value = value }) catch return api.make_lua_err("fetch headers", error.OutOfMemory);
         L.pop(1);
     }
-    defer headers.deinit();
+    defer headers.deinit(alloc);
     L.pop(1);
 
     _ = L.getField(2, "body");
@@ -92,47 +92,61 @@ fn lFetch(L: *Lua) i32 {
     }
     L.pop(1);
 
-    var server_header_buffer: [16 * 1024]u8 = undefined;
+    var writer = std.Io.Writer.Allocating.init(alloc);
+    defer writer.deinit();
 
-    var req = std.http.Client.open(http.getClient(), method, url, .{
-        .server_header_buffer = &server_header_buffer,
-        .headers = .{
-            .user_agent = if (is_ua_set) .omit else .default,
-            .authorization = .omit,
+    const redirect_behavior: std.http.Client.Request.RedirectBehavior = if (body == null) @enumFromInt(3) else .unhandled;
+
+    var req = std.http.Client.request(http.getClient(), method, url, .{
+        //.server_header_buffer = &server_header_buffer,
+        .headers = .{ 
+            .user_agent = if (is_ua_set) .omit else .default, 
+            .authorization = .omit
         },
         .extra_headers = headers.items,
-    }) catch return api.make_lua_err("failed to open client", error.OpenFailed);
+        .redirect_behavior = redirect_behavior,
+    }) catch return api.make_lua_err("failed to fetch", error.FetchFailed);
     defer req.deinit();
 
-    if (body) |payload| req.transfer_encoding = .{ .content_length = payload.len };
+    if (body) |payload| {
+        req.transfer_encoding = .{ .content_length = payload.len };
+        var body_req = req.sendBody(&.{}) catch return api.make_lua_err("failed to send body", error.SendBodyFailed);
+        body_req.writer.writeAll(payload) catch return api.make_lua_err("failed to write body", error.WriteBodyFailed);
+        body_req.end() catch return api.make_lua_err("failed to end body", error.EndBodyFailed);
+    }
 
-    req.send() catch return api.make_lua_err("failed to send request", error.SendFailed);
+    const redirect_buffer: []u8 = if (redirect_behavior == .unhandled) &.{} else alloc.alloc(u8, 8 * 1024) catch return api.make_lua_err("failed to alloc redirect buffer", error.OutOfMemory);
+    defer alloc.free(redirect_buffer);
 
-    if (body) |payload| req.writeAll(payload) catch return api.make_lua_err("failed to write payload", error.WriteFailed);
+    var response = req.receiveHead(redirect_buffer) catch return api.make_lua_err("failed to receive head", error.ReceiveHeadFailed);
 
-    req.finish() catch return api.make_lua_err("failed to finish request", error.FinishFailed);
-    req.wait() catch return api.make_lua_err("failed to wait for request", error.WaitFailed);
+    const decompress_buffer: []u8 = switch (response.head.content_encoding) {
+        .identity => &.{},
+        .zstd => alloc.alloc(u8, std.compress.zstd.default_window_len) catch return api.make_lua_err("failed to alloc decompress buffer", error.OutOfMemory),
+        .deflate, .gzip => alloc.alloc(u8, std.compress.flate.max_window_len) catch return api.make_lua_err("failed to alloc decompress buffer", error.OutOfMemory),
+        .compress => return api.make_lua_err("unsupported compression method", error.UnsupportedCompressionMethod),
+    };
+    defer alloc.free(decompress_buffer);
 
-    const max_append_size = 2 * 1024 * 1024;
-    var list = std.ArrayList(u8).init(alloc);
-    defer list.deinit();
-    req.reader().readAllArrayList(@constCast(&list), max_append_size) catch return api.make_lua_err("failed to read all", error.ReadAllFailed);
+    var transfer_buffer: [64]u8 = undefined;
+    var decompress: std.http.Decompress = undefined;
+    const reader = response.readerDecompressing(&transfer_buffer, &decompress, decompress_buffer);
 
     L.newTable();
 
     _ = L.pushString("status");
-    _ = L.pushInteger(@intFromEnum(req.response.status));
+    _ = L.pushInteger(@intFromEnum(response.head.status));
     L.setTable(-3);
 
     _ = L.pushString("body");
-    _ = L.pushString(list.items);
+    _ = L.pushString(reader.buffered());
     L.setTable(-3);
 
     _ = L.pushString("headers");
     L.newTable();
 
-    var iter = req.response.iterateHeaders();
-    while (iter.next()) |header| {
+    var header_iter = std.http.HeaderIterator.init(response.head.bytes);
+    while (header_iter.next()) |header| {
         _ = L.pushString(header.name);
         _ = L.pushString(header.value);
         L.setTable(-3);

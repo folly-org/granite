@@ -20,7 +20,7 @@ pub const App = struct {
     libraries: std.StringHashMap(std.ArrayList(lua.FnReg)),
 
     /// Initializes the app with the given parameters.
-    /// 
+    ///
     /// # Arguments
     /// - `allocator`: The allocator to use for the app.
     /// - `screen_width`: The width of the screen.
@@ -35,17 +35,17 @@ pub const App = struct {
             .screen_height = screen_height,
             .window_name = window_name,
             .base_folder = base_folder,
-            .globals = std.ArrayList(lua.FnReg).init(allocator),
+            .globals = std.ArrayList(lua.FnReg).empty,
             .libraries = std.StringHashMap(std.ArrayList(lua.FnReg)).init(allocator),
         };
     }
 
     /// Deinitializes the app.
     pub fn deinit(self: *App) void {
-        self.globals.deinit();
+        self.globals.deinit(self.allocator);
         var iter = self.libraries.valueIterator();
         while (iter.next()) |library| {
-            library.deinit();
+            library.deinit(self.allocator);
         }
         self.libraries.deinit();
     }
@@ -90,7 +90,7 @@ pub const App = struct {
             L.registerFns(library_name, library.value_ptr.*.items);
         }
 
-        const core_init_path = try std.fmt.allocPrintZ(self.allocator, "{s}/core/init.luau", .{self.base_folder});
+        const core_init_path = try std.fmt.allocPrintSentinel(self.allocator, "{s}/core/init.luau", .{self.base_folder}, 0);
         defer self.allocator.free(core_init_path);
 
         lua_api.doFile(L, core_init_path, null) catch |err| {
@@ -103,13 +103,13 @@ pub const App = struct {
             // Update
             var key: rl.KeyboardKey = rl.getKeyPressed();
             while (key != .null) {
-                try signal.emitSignal(L, "KeyPressed", .{ key });
+                try signal.emitSignal(L, "KeyPressed", .{key});
                 key = rl.getKeyPressed();
             }
 
             // Render
-            
-            try signal.emitSignal(L,"RenderStart", .{ rl.getFrameTime() });
+
+            try signal.emitSignal(L, "RenderStart", .{rl.getFrameTime()});
 
             rl.beginDrawing();
             defer rl.endDrawing();
@@ -122,17 +122,17 @@ pub const App = struct {
     }
 
     /// Registers a global function.
-    /// 
+    ///
     /// # Arguments
     /// - `name`: The name of the global function.
     /// - `function`: The function to register.
     pub fn registerGlobal(self: *App, name: [:0]const u8, function: anytype) !void {
         const c_function = zigFnToLuaCFn(function);
-        try self.globals.append(.{ .name = name, .func = c_function });
+        try self.globals.append(self.allocator, .{ .name = name, .func = c_function });
     }
 
     /// Registers a library function.
-    /// 
+    ///
     /// # Arguments
     /// - `library_name`: The name of the library.
     /// - `name`: The name of the function.
@@ -141,9 +141,9 @@ pub const App = struct {
         const c_function = zigFnToLuaCFn(function);
         const library = try self.libraries.getOrPut(library_name);
         if (!library.found_existing) {
-            library.value_ptr.* = std.ArrayList(lua.FnReg).init(self.allocator);
+            library.value_ptr.* = std.ArrayList(lua.FnReg).empty;
         }
-        try library.value_ptr.*.append(.{ .name = name, .func = c_function });
+        try library.value_ptr.*.append(self.allocator, .{ .name = name, .func = c_function });
     }
 };
 
@@ -160,7 +160,7 @@ fn zigFnToLuaCFn(comptime function: anytype) lua.CFn {
         pub fn inner(L: *Lua) i32 {
             const args = std.meta.ArgsTuple(@TypeOf(function));
             var values: args = undefined;
-    
+
             inline for (info.@"fn".params, 0..) |arg, i| {
                 const lua_index = i + 1;
                 switch (@typeInfo(arg)) {
@@ -200,7 +200,7 @@ fn zigFnToLuaCFn(comptime function: anytype) lua.CFn {
                     },
                     else => {
                         @compileError("Unsupported argument type");
-                    }
+                    },
                 }
             }
 

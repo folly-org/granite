@@ -58,8 +58,13 @@ fn lStringifyJSON(L: *Lua) i32 {
     const jsonValue = luaValueToJson(L, 1, alloc) catch return 0;
     defer freeJsonValue(jsonValue, alloc);
 
-    const json = std.json.stringifyAlloc(alloc, jsonValue, .{}) catch return 0;
-    defer alloc.free(json);
+    var writer = std.Io.Writer.Allocating.init(alloc);
+    defer writer.deinit();
+    var stringify = std.json.Stringify{ .writer = &writer.writer };
+
+    jsonValue.jsonStringify(&stringify) catch return 0;
+
+    const json = writer.written();
 
     _ = L.pushString(json);
 
@@ -103,7 +108,8 @@ fn luaValueToJson(L: *Lua, index: i32, allocator: std.mem.Allocator) !std.json.V
             L.pop(1);
 
             if (isArray) {
-                var array = std.ArrayList(std.json.Value).init(allocator);
+                // std.json.Value still needs AlignedManaged (not Aligned aka std.ArrayList)
+                var array = std.array_list.AlignedManaged(std.json.Value, null).init(allocator);
                 errdefer {
                     for (array.items) |item| {
                         freeJsonValue(item, allocator);
