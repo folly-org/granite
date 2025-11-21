@@ -6,10 +6,12 @@ const Lua = lua.Lua;
 // TODO: add some attributes, like for :Once, etc.
 var signals: std.StringHashMap(std.AutoHashMapUnmanaged(i32, void)) = undefined;
 var alloc: std.mem.Allocator = undefined;
+pub var isInitialized: bool = false;
 
 pub fn init(allocator: std.mem.Allocator) !void {
     signals = std.StringHashMap(std.AutoHashMapUnmanaged(i32, void)).init(allocator);
     alloc = allocator;
+    isInitialized = true;
 
     try createSignal("RenderStart");
     try createSignal("RenderEnd");
@@ -18,18 +20,25 @@ pub fn init(allocator: std.mem.Allocator) !void {
 }
 
 pub fn deinit() void {
+    if (!isInitialized) return;
+
     var it = signals.iterator();
     while (it.next()) |entry| {
         entry.value_ptr.deinit(alloc);
     }
     signals.deinit();
+    isInitialized = false;
 }
 
 pub fn createSignal(signal: []const u8) !void {
+    if (!isInitialized) return error.NotInitialized;
+
     try signals.put(signal, .{});
 }
 
 pub fn addSignalConnection(signal: []const u8, ref: i32) void {
+    if (!isInitialized) return;
+
     if (signals.getPtr(signal)) |connections| {
         connections.put(alloc, ref, {}) catch unreachable;
     } else {
@@ -38,6 +47,8 @@ pub fn addSignalConnection(signal: []const u8, ref: i32) void {
 }
 
 pub fn removeSignalConnection(signal: []const u8, ref: i32) void {
+    if (!isInitialized) return;
+
     if (signals.getPtr(signal)) |connections| {
         _ = connections.remove(ref);
     } else {
@@ -50,6 +61,8 @@ pub fn emitSignal(L: *Lua, signal: []const u8, Args: anytype) !void {
     if (@typeInfo(ArgsType) != .@"struct") {
         @compileError("Args must be a struct");
     }
+
+    if (!isInitialized) return;
 
     if (signals.getPtr(signal)) |connections| {
         var it = connections.iterator();

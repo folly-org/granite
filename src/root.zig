@@ -18,6 +18,7 @@ pub const App = struct {
     base_folder: []const u8,
     globals: std.ArrayList(lua.FnReg),
     libraries: std.StringHashMap(std.ArrayList(lua.FnReg)),
+    lua_state: ?*Lua,
 
     /// Initializes the app with the given parameters.
     ///
@@ -37,6 +38,7 @@ pub const App = struct {
             .base_folder = base_folder,
             .globals = std.ArrayList(lua.FnReg).empty,
             .libraries = std.StringHashMap(std.ArrayList(lua.FnReg)).init(allocator),
+            .lua_state = null,
         };
     }
 
@@ -48,6 +50,30 @@ pub const App = struct {
             library.deinit(self.allocator);
         }
         self.libraries.deinit();
+    }
+
+    fn luaThread(self: *App) !void {
+        self.lua_state = try Lua.init(self.allocator);
+
+        self.lua_state.?.openLibs();
+        lua_api.loadLibraries(self.lua_state.?);
+        for (self.globals.items) |global| {
+            self.lua_state.?.register(global.name, global.func.?);
+        }
+
+        var iter = self.libraries.iterator();
+        while (iter.next()) |library| {
+            const library_name = try self.allocator.dupeZ(u8, library.key_ptr.*);
+            defer self.allocator.free(library_name);
+            self.lua_state.?.registerFns(library_name, library.value_ptr.*.items);
+        }
+
+        const core_init_path = try std.fmt.allocPrintSentinel(self.allocator, "{s}/core/init.luau", .{self.base_folder}, 0);
+        defer self.allocator.free(core_init_path);
+
+        lua_api.doFile(self.lua_state.?, core_init_path, null) catch |err| {
+            std.debug.print("lua err: {}\n", .{err});
+        };
     }
 
     /// Runs the app.
@@ -71,31 +97,17 @@ pub const App = struct {
         try renderer.init(self.allocator);
         defer renderer.deinit();
 
-        var L = try Lua.init(self.allocator);
-        defer L.deinit();
-
         try signal.init(self.allocator);
         defer signal.deinit();
 
-        L.openLibs();
-        lua_api.loadLibraries(L);
-        for (self.globals.items) |global| {
-            L.register(global.name, global.func.?);
-        }
-
-        var iter = self.libraries.iterator();
-        while (iter.next()) |library| {
-            const library_name = try self.allocator.dupeZ(u8, library.key_ptr.*);
-            defer self.allocator.free(library_name);
-            L.registerFns(library_name, library.value_ptr.*.items);
-        }
-
-        const core_init_path = try std.fmt.allocPrintSentinel(self.allocator, "{s}/core/init.luau", .{self.base_folder}, 0);
-        defer self.allocator.free(core_init_path);
-
-        lua_api.doFile(L, core_init_path, null) catch |err| {
-            std.debug.print("lua err: {}\n", .{err});
+        _ = std.Thread.spawn(.{}, luaThread, .{self}) catch |err| {
+            std.debug.print("lua thread error: {}\n", .{err});
         };
+
+        while (self.lua_state == null or !signal.isInitialized) {
+            std.Thread.sleep(1000);
+        }
+        defer self.lua_state.?.deinit();
 
         rl.pollInputEvents();
 
@@ -103,13 +115,13 @@ pub const App = struct {
             // Update
             var key: rl.KeyboardKey = rl.getKeyPressed();
             while (key != .null) {
-                try signal.emitSignal(L, "KeyPressed", .{key});
+                try signal.emitSignal(self.lua_state.?, "KeyPressed", .{key});
                 key = rl.getKeyPressed();
             }
 
             // Render
 
-            try signal.emitSignal(L, "RenderStart", .{rl.getFrameTime()});
+            try signal.emitSignal(self.lua_state.?, "RenderStart", .{rl.getFrameTime()});
 
             rl.beginDrawing();
             defer rl.endDrawing();
@@ -117,7 +129,7 @@ pub const App = struct {
             rl.clearBackground(rl.Color.black);
             renderer.drawFrame();
 
-            try signal.emitSignal(L, "RenderEnd", .{});
+            try signal.emitSignal(self.lua_state.?, "RenderEnd", .{});
         }
     }
 

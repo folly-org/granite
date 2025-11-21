@@ -20,6 +20,14 @@ Signal.RenderEnd:Connect(function()
     end
 end)
 
+function randomCharacters(length)
+    local result = ""
+    for i = 1, length do
+        result = result .. string.char(math.random(1, 255))
+    end
+    return result
+end
+
 Signal.RenderStart:Connect(function(delta_time)
     table.insert(textTbl, {
         math.random(1, 1000),
@@ -37,7 +45,12 @@ Signal.RenderStart:Connect(function(delta_time)
             alpha = v[6],
         })
     end
-    print("FPS: " .. App.getFPS(), "Texts: " .. #textTbl)
+    Renderer.drawText(font, "FPS: " .. App.getFPS() .. " - Texts: " .. #textTbl, 100, 100 , 100, {
+        red = 255,
+        green = 255,
+        blue = 255,
+        alpha = 255,
+    })
     Renderer.endRedraw()
 end)
 
