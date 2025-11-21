@@ -103,7 +103,7 @@ pub fn emitSignal(L: *Lua, signal: []const u8, Args: anytype) !void {
                 .msg_handler = 0,
             }) catch {
                 std.debug.print("Error calling signal: {s}\n", .{signal});
-                std.debug.print("Error: {s}\n", .{L.toString(-1)});
+                std.debug.print("Error: {s}\n", .{try L.toString(-1)});
             };
         }
     } else {
